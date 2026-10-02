@@ -196,6 +196,16 @@ if [ "$DEV_SANDBOX_INTERACTIVE" = true ]; then
   dev_mounts=(--dev /dev)
 fi
 
+# TLS note: every client in here talks to proxy.py, which mints per-host leaf
+# certs from the sandbox's own throwaway CA (certs/ca.pem). All four CA pointers
+# below therefore name ca.pem. real-ca.pem is the REAL upstream bundle, used by
+# the PROXY itself to verify upstream - it cannot validate a proxy-minted leaf.
+# Node/npm read NODE_EXTRA_CA_CERTS and ignore CURL_CA_BUNDLE/SSL_CERT_FILE, so
+# pointing that one at real-ca.pem left `npm install` unable to validate
+# registry.npmjs.org: TLS handshake EOF, empty npm output, E2E exits 1.
+#
+# Keep comments OUT of the continuation below: a `#` there ends the command and
+# the remaining words execute as a separate command.
 exec bwrap \
   --unshare-pid \
   --die-with-parent --proc /proc --tmpfs /tmp \
@@ -216,7 +226,7 @@ exec bwrap \
   --setenv CURL_CA_BUNDLE /work/certs/ca.pem \
   --setenv SSL_CERT_FILE /work/certs/ca.pem \
   --setenv GIT_SSL_CAINFO /work/certs/ca.pem \
-  --setenv NODE_EXTRA_CA_CERTS /work/certs/real-ca.pem \
+  --setenv NODE_EXTRA_CA_CERTS /work/certs/ca.pem \
   --setenv OPENSSL_CONF /work/certs/openssl.cnf \
   --setenv HTTP_PROXY http://127.0.0.1:8080 \
   --setenv HTTPS_PROXY http://127.0.0.1:8080 \
